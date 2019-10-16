@@ -89,22 +89,6 @@ function create_test_namespace(){
   oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE
 }
 
-function build_knative_client() {
-  failed=0
-  ./hack/build.sh -f || failed=1
-  return $failed
-}
-
-function run_e2e_tests(){
-  echo ">>Running e2e tests"
-  failed=0
-  # Add local dir to have access to built kn
-  export PATH=$PATH:${REPO_ROOT_DIR}
-  export GO111MODULE=on
-  go_test_e2e -timeout=30m -parallel=1 ./test/e2e || fail_test
-  return $failed
-}
-
 # Waits until all pods are running in the given namespace.
 # Parameters: $1 - namespace.
 function wait_until_pods_running() {
@@ -163,13 +147,9 @@ create_test_namespace || exit 1
 
 failed=0
 
-#(( !failed )) && build_knative_client || failed=1
-
 (( !failed )) && install_servicemesh || failed=1
 
 (( !failed )) && install_knative_serving || failed=1
-
-#(( !failed )) && run_e2e_tests || failed=1
 
 #teardown
 
