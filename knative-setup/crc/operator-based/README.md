@@ -12,3 +12,5 @@ oc login -u kubeadmin -p F44En-Xau6V-jQuyb-yuMXB https://api.crc.testing:6443
 ```
 bash crc-serverless.sh
 ```
+
+TODO: Add setup and teardown args to script
