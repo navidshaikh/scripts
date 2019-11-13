@@ -1,9 +1,7 @@
-Install OpenShift Serverless on CRC
-===================================
+Install OpenShift Serverless from master branch on CRC
+======================================================
 
-To install Serverless Operator from its master branch check [this](./latest/README.md).
-
-Install Service Mesh and released Serverless Operator on CRC:
+Install Serverless Operator from its master branch on CRC:
 
 1. Before starting CRC, lets increase the resource allocation to CRC
 ```
