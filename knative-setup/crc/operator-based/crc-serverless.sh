@@ -1,9 +1,6 @@
 set -x
 
-readonly TEST_NAMESPACE="kn"
-readonly SERVING_RELEASE="release-v0.8.1"
 readonly SERVING_NAMESPACE="knative-serving"
-readonly SERVICEMESH_NAMESPACE="istio-system"
 
 env
 
@@ -17,41 +14,6 @@ function timeout() {
   return 0
 }
 
-function install_servicemesh(){
-  echo ">>Installing ServiceMesh"
-
-  # Install the ServiceMesh Operator
-  oc apply -f https://raw.githubusercontent.com/openshift/knative-serving/$SERVING_RELEASE/openshift/servicemesh/operator-install.yaml
-
-  # Wait for the istio-operator pod to appear
-  timeout 1800 '[[ $(oc get pods -n openshift-operators | grep -c istio-operator) -eq 0 ]]' || return 1
-
-  # Wait until the Operator pod is up and running
-  wait_until_pods_running openshift-operators || return 1
-
-  # Deploy ServiceMesh
-  oc new-project $SERVICEMESH_NAMESPACE
-  oc apply -n $SERVICEMESH_NAMESPACE -f https://raw.githubusercontent.com/openshift/knative-serving/$SERVING_RELEASE/openshift/servicemesh/controlplane-install.yaml
-  cat <<EOF | oc apply -f -
-apiVersion: maistra.io/v1
-kind: ServiceMeshMemberRoll
-metadata:
-  name: default
-  namespace: ${SERVICEMESH_NAMESPACE}
-spec:
-  members:
-  - ${SERVING_NAMESPACE}
-  - ${TEST_NAMESPACE}
-EOF
-
-  # Wait for the ingressgateway pod to appear.
-  timeout 1800 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c istio-ingressgateway) -eq 0 ]]' || return 1
-
-  wait_until_pods_running $SERVICEMESH_NAMESPACE
-
-  echo ">>ServiceMesh installed successfully"
-}
-
 function install_knative_serving(){
   echo ">>Installing Knative serving"
 
@@ -59,9 +21,6 @@ function install_knative_serving(){
 
   # Deploy Serverless Operator
   deploy_serverless_operator
-
-  # Wait for the CRD to appear
-  timeout 1800 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 
   # Install Knative Serving
   cat <<-EOF | oc apply -f -
@@ -72,8 +31,8 @@ metadata:
   namespace: ${SERVING_NAMESPACE}
 EOF
 
-  # Wait for 6 pods to appear first
-  timeout 1800 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return
+  # Wait for 4 pods to appear first
+  timeout 1800 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return
 
   wait_until_pods_running $SERVING_NAMESPACE || return 1
 
@@ -82,11 +41,9 @@ EOF
 
 function deploy_serverless_operator(){
   oc apply -f operator-install.yaml
-}
 
-function create_test_namespace(){
-  oc new-project $TEST_NAMESPACE
-  oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE
+  # Wait for the CRD to appear
+  timeout 1800 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 }
 
 # Waits until all pods are running in the given namespace.
@@ -126,32 +83,9 @@ function delete_knative_openshift() {
   oc delete --ignore-not-found=true project $SERVING_NAMESPACE
 }
 
-function delete_test_namespace(){
-  echo ">> Deleting test namespaces"
-  oc delete project $TEST_NAMESPACE
-}
-
-function delete_service_mesh(){
-  echo ">> Bringin down Service Mesh"
-  oc delete --ignore-not-found=true -n $SERVICEMESH_NAMESPACE -f https://raw.githubusercontent.com/openshift/knative-serving/$SERVING_RELEASE/openshift/servicemesh/controlplane-install.yaml
-  oc delete --ignore-not-found=true -f https://raw.githubusercontent.com/openshift/knative-serving/$SERVING_RELEASE/openshift/servicemesh/operator-install.yaml
-}
-
-function teardown() {
-  delete_test_namespace
-  delete_service_mesh
-  delete_knative_openshift
-}
-
-create_test_namespace || exit 1
-
 failed=0
 
-(( !failed )) && install_servicemesh || failed=1
-
 (( !failed )) && install_knative_serving || failed=1
-
-#teardown
 
 (( failed )) && exit 1
 
