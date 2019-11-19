@@ -17,7 +17,9 @@ fi
 
 serving_version="nightly"
 eventing_version="nightly"
-istio_version="1.1.13"
+istio_version="1.2.7"
+#kube_version="v1.12.1"
+#kube_version="v1.13.4"
 kube_version="v1.14.0"
 
 MEMORY="$(minikube config view | awk '/memory/ { print $3 }')"
@@ -32,11 +34,10 @@ header_text() {
 header_text "Starting Knative on minikube!"
 header_text "Using Kubernetes Version:               ${kube_version}"
 header_text "Using Knative Serving Version:          ${serving_version}"
-#header_text "Using Knative Eventing Version:         ${eventing_version}"
+header_text "Using Knative Eventing Version:         ${eventing_version}"
 header_text "Using Istio (minimal) Version:          ${istio_version}"
 
-minikube start --memory="${MEMORY:-12288}" --cpus="${CPUS:-6}" --kubernetes-version="${kube_version}" --vm-driver="${DRIVER:-kvm2}" --disk-size="${DISKSIZE:-30g}" --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
-
+minikube start --memory="${MEMORY:-20480}" --cpus="${CPUS:-6}" --kubernetes-version="${kube_version}" --vm-driver="${DRIVER:-kvm2}" --disk-size="${DISKSIZE:-30g}" --extra-config=apiserver.enable-admission-plugins="LimitRanger,NamespaceExists,NamespaceLifecycle,ResourceQuota,ServiceAccount,DefaultStorageClass,MutatingAdmissionWebhook"
 header_text "Waiting for core k8s services to initialize"
 sleep 5; while echo && kubectl get pods -n kube-system | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
 
@@ -45,12 +46,15 @@ curl -L "https://raw.githubusercontent.com/knative/serving/master/third_party/is
     | sed 's/LoadBalancer/NodePort/' \
     | kubectl apply --overwrite=true --filename -
 
+# scale deployment/cluster-local-gateway to 1 replica
+kubectl scale deployment/cluster-local-gateway --replicas=1 -n istio-system
+# scale deployment/istio-ingressgateway to 1 replica
+kubectl scale deployment/istio-ingressgateway --replicas=1 -n istio-system
+
+
 # Label the default namespace with istio-injection=enabled.
 header_text "Labeling default namespace w/ istio-injection=enabled"
-kubectl label namespace default istio-injection=enabled
-
-kubectl scale deployment/cluster-local-gateway --replicas=1 -n istio-system
-
+kubectl label --overwrite=true namespace default istio-injection=enabled
 header_text "Waiting for istio to become ready"
 sleep 5; while echo && kubectl get pods -n istio-system | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
 
@@ -63,25 +67,21 @@ set -e
 if [ $rc -ne 0 ]; then
    # Retry
   sleep 5
-  kubectl apply --selector knative.dev/crd-install=true --filename https://storage.googleapis.com/knative-nightly/serving/latest/serving.yaml
+  kubectl apply --overwrite=true --selector knative.dev/crd-install=true --filename https://storage.googleapis.com/knative-nightly/serving/latest/serving.yaml
 fi
 
 curl -L "https://storage.googleapis.com/knative-nightly/serving/latest/serving.yaml" \
   | sed 's/LoadBalancer/NodePort/' \
   | kubectl apply --overwrite=true --filename -
 
-kubectl apply --overwrite=true --filename https://storage.googleapis.com/knative-nightly/serving/latest/serving.yaml
-
 header_text "Waiting for Knative Serving to become ready"
 sleep 5; while echo && kubectl get pods -n knative-serving | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
 
-header_text "Success!"
+header_text "Setting up Knative Eventing"
+#kubectl apply --overwrite=true --filename https://github.com/knative/eventing/releases/download/${eventing_version}/release.yaml
+kubectl apply --overwrite=true --selector knative.dev/crd-install=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
+sleep 5
+kubectl apply --overwrite=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
 
-#header_text "Setting up Knative Eventing"
-#kubectl apply --filename https://github.com/knative/eventing/releases/download/${eventing_version}/release.yaml
-#kubectl apply --selector knative.dev/crd-install=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
-#sleep 5
-#kubectl apply --filename https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
-
-#header_text "Waiting for Knative Eventing to become ready"
-#sleep 5; while echo && kubectl get pods -n knative-eventing | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
+header_text "Waiting for Knative Eventing to become ready"
+sleep 5; while echo && kubectl get pods -n knative-eventing | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
