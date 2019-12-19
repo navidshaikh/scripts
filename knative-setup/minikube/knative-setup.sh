@@ -15,11 +15,10 @@ else
   reset=''
 fi
 
-serving_version="v0.10.0"
-eventing_version="v0.10.1"
-eventing_sources_version="v0.9.0"
-istio_version="1.2.7"
-#kube_version="v1.13.4"
+serving_version="v0.11.0"
+eventing_version="v0.11.0"
+#eventing_sources_version="v0.9.0"
+istio_version="1.3.5"
 kube_version="v1.14.0"
 
 MEMORY="$(minikube config view | awk '/memory/ { print $3 }')"
