@@ -15,11 +15,11 @@ else
   reset=''
 fi
 
-serving_version="v0.11.0"
-eventing_version="v0.11.0"
+serving_version="v0.12.0"
+eventing_version="v0.12.0"
 #eventing_sources_version="v0.9.0"
-istio_version="1.3.5"
-kube_version="v1.14.0"
+istio_version="1.3.6"
+kube_version="v1.15.0"
 
 MEMORY="$(minikube config view | awk '/memory/ { print $3 }')"
 CPUS="$(minikube config view | awk '/cpus/ { print $3 }')"
@@ -41,10 +41,10 @@ minikube start --memory="${MEMORY:-12288}" --cpus="${CPUS:-4}" --kubernetes-vers
 header_text "Waiting for core k8s services to initialize"
 sleep 5; while echo && kubectl get pods -n kube-system | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
 
-header_text "Setting up Istio Lean"
+header_text "Setting up Istio Minimal"
 err=1
 while [ $err -eq 1 ]; do
-  curl -L "https://raw.githubusercontent.com/knative/serving/${serving_version}/third_party/istio-${istio_version}/istio-lean.yaml" \
+  curl -L "https://raw.githubusercontent.com/knative/serving/${serving_version}/third_party/istio-${istio_version}/istio-minimal.yaml" \
       | sed 's/LoadBalancer/NodePort/' \
       | kubectl apply --overwrite=true --filename -
   err=$?
@@ -71,7 +71,7 @@ sleep 5; while echo && kubectl get pods -n knative-serving | grep -v -E "(Runnin
 
 
 header_text "Setting up Knative Eventing"
-kubectl apply --overwrite=true --filename https://github.com/knative/eventing/releases/download/${eventing_version}/release.yaml
+kubectl apply --overwrite=true --filename https://github.com/knative/eventing/releases/download/${eventing_version}/eventing.yaml
 #kubectl apply --filename https://raw.githubusercontent.com/openshift-knative/knative-eventing-operator/master/deploy/resources/knative-eventing-sources-${eventing_sources_version}.yaml
 
 header_text "Waiting for Knative Eventing to become ready"

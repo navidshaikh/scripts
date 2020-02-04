@@ -17,10 +17,10 @@ fi
 
 serving_version="nightly"
 eventing_version="nightly"
-istio_version="1.2.7"
+istio_version="1.3.6"
 #kube_version="v1.12.1"
 #kube_version="v1.13.4"
-kube_version="v1.14.0"
+kube_version="v1.15.0"
 
 MEMORY="$(minikube config view | awk '/memory/ { print $3 }')"
 CPUS="$(minikube config view | awk '/cpus/ { print $3 }')"
@@ -42,7 +42,7 @@ header_text "Waiting for core k8s services to initialize"
 sleep 5; while echo && kubectl get pods -n kube-system | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
 
 header_text "Setting up Istio Lean"
-curl -L "https://raw.githubusercontent.com/knative/serving/master/third_party/istio-${istio_version}/istio-lean.yaml" \
+curl -L "https://raw.githubusercontent.com/knative/serving/master/third_party/istio-${istio_version}/istio-minimal.yaml" \
     | sed 's/LoadBalancer/NodePort/' \
     | kubectl apply --overwrite=true --filename -
 
@@ -78,10 +78,10 @@ header_text "Waiting for Knative Serving to become ready"
 sleep 5; while echo && kubectl get pods -n knative-serving | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
 
 header_text "Setting up Knative Eventing"
-#kubectl apply --overwrite=true --filename https://github.com/knative/eventing/releases/download/${eventing_version}/release.yaml
-kubectl apply --overwrite=true --selector knative.dev/crd-install=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
+#kubectl apply --overwrite=true --filename https://github.com/knative/eventing/releases/download/${eventing_version}/eventing.yaml
+kubectl apply --overwrite=true --selector knative.dev/crd-install=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/eventing.yaml
 sleep 5
-kubectl apply --overwrite=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/release.yaml
+kubectl apply --overwrite=true --filename https://storage.googleapis.com/knative-nightly/eventing/latest/eventing.yaml
 
 header_text "Waiting for Knative Eventing to become ready"
 sleep 5; while echo && kubectl get pods -n knative-eventing | grep -v -E "(Running|Completed|STATUS)"; do sleep 5; done
